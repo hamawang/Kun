@@ -431,6 +431,30 @@ export function createNavigationActions(
       const next = await rendererRuntimeClient.setSettings({ workspaceRoot: picked.path })
       const workspaceRoot = normalizeWorkspaceRoot(next.workspaceRoot)
       const codeWorkspaceRoots = rememberCodeWorkspaceRoots(get().codeWorkspaceRoots, [workspaceRoot])
+
+      // Update the active thread's workspace so the current session
+      // moves to the newly picked directory instead of creating a
+      // new thread or switching away.
+      const activeThreadId = get().activeThreadId
+      if (activeThreadId && workspaceRoot) {
+        try {
+          const p = getProvider()
+          if (typeof p.updateThreadWorkspace === 'function') {
+            await p.updateThreadWorkspace(activeThreadId, workspaceRoot)
+            // Update the local threads list so the sidebar shows the
+            // thread under the new workspace immediately.
+            set((s) => ({
+              threads: s.threads.map((thread) =>
+                thread.id === activeThreadId ? { ...thread, workspace: workspaceRoot } : thread
+              )
+            }))
+          }
+        } catch {
+          // If the runtime doesn't support workspace updates yet,
+          // fall through to the existing behaviour.
+        }
+      }
+
       set({
         workspaceRoot,
         codeWorkspaceRoots,
@@ -444,6 +468,8 @@ export function createNavigationActions(
           await get().openWrite()
           return workspaceRoot
         }
+        // If we just updated the active thread, stay on it.
+        if (activeThreadId) return workspaceRoot
         const workspaceThreads = get().threads
           .filter((thread) => isCodeThread(thread, get().clawChannels))
           .filter((thread) => threadBelongsToWorkspace(thread, workspaceRoot))
