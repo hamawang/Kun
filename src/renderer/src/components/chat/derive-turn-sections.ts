@@ -5,7 +5,6 @@ import {
   formatFilePathForDisplay,
 } from '../../lib/diff-stats'
 import {
-  findTrailingAssistantContentStart,
   isProcessBlock,
   splitThink,
   type Turn
@@ -81,11 +80,8 @@ export function deriveTurnSections({
   const processBlocks: ChatBlock[] = []
   const assistantContentBlocks: TurnAssistantBlock[] = []
   let latestAssistantContentBlock: TurnAssistantBlock | null = null
-  const trailingAssistantContentStart = isProcessing
-    ? turn.blocks.length
-    : findTrailingAssistantContentStart(turn.blocks)
 
-  for (const [index, block] of turn.blocks.entries()) {
+  for (const block of turn.blocks) {
     if (block.kind === 'assistant') {
       const split = splitThink(block.text)
       if (split.think) {
@@ -96,7 +92,7 @@ export function deriveTurnSections({
         latestAssistantContentBlock = contentBlock
         if (isProcessing) {
           processBlocks.push(contentBlock)
-        } else if (index >= trailingAssistantContentStart) {
+        } else {
           assistantContentBlocks.push(contentBlock)
         }
       }
