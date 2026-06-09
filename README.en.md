@@ -392,8 +392,8 @@ npm run build           # production build
 npm run dist:mac        # macOS packages
 npm run dist:win        # Windows installer (run on Windows)
 npm run dist:linux      # Linux AppImage
-npm run release:mac     # build and upload macOS release assets on macOS
-npm run release:win     # build and upload Windows release assets on Windows
+npm run release:mac     # manual fallback for macOS release assets
+npm run release:win     # manual fallback for Windows release assets
 ```
 
 For the full development workflow, see [DEVELOPMENT.md](./docs/DEVELOPMENT.md).

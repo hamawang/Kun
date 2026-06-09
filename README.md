@@ -375,8 +375,8 @@ npm run build           # 生产构建
 npm run dist:mac        # macOS 安装包
 npm run dist:win        # Windows 安装包（在 Windows 上运行）
 npm run dist:linux      # Linux AppImage
-npm run release:mac     # 在 macOS 上构建并上传 macOS release 资源
-npm run release:win     # 在 Windows 上构建并上传 Windows release 资源
+npm run release:mac     # 手动兜底：构建并上传 macOS release 资源
+npm run release:win     # 手动兜底：构建并上传 Windows release 资源
 ```
 
 更多开发流程请看 [DEVELOPMENT.zh-CN.md](./docs/DEVELOPMENT.zh-CN.md)。
