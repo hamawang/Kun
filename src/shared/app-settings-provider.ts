@@ -1,5 +1,6 @@
 import {
   DEFAULT_DEEPSEEK_BASE_URL,
+  DEFAULT_MODEL_ENDPOINT_FORMAT,
   DEFAULT_MODEL_PROVIDER_ID,
   type AppSettingsV1,
   type KunRuntimeSettingsV1,
@@ -8,6 +9,7 @@ import {
   type ModelProviderSettingsPatchV1,
   type ModelProviderSettingsV1
 } from './app-settings-types'
+import { normalizeModelEndpointFormat } from '../../kun/src/contracts/model-endpoint-format.js'
 import { getKunRuntimeSettings } from './app-settings-kun'
 import { normalizeDeepseekBaseUrl } from './app-settings-normalizers'
 import { DEFAULT_COMPOSER_MODEL_IDS } from './default-composer-models'
@@ -121,7 +123,8 @@ export function resolveKunRuntimeSettings(settings: AppSettingsV1): KunRuntimeSe
     baseUrl:
       runtimeBaseUrl && runtimeBaseUrl !== DEFAULT_DEEPSEEK_BASE_URL
         ? normalizeDeepseekBaseUrl(runtimeBaseUrl)
-        : normalizeDeepseekBaseUrl(providerBaseUrl)
+        : normalizeDeepseekBaseUrl(providerBaseUrl),
+    endpointFormat: provider.endpointFormat
   }
 }
 
@@ -131,6 +134,7 @@ function defaultModelProviderProfile(apiKey: string, baseUrl: string): ModelProv
     name: DEFAULT_MODEL_PROVIDER_NAME,
     apiKey: apiKey.trim(),
     baseUrl: normalizeDeepseekBaseUrl(baseUrl),
+    endpointFormat: DEFAULT_MODEL_ENDPOINT_FORMAT,
     models: DEFAULT_COMPOSER_MODEL_IDS.filter((id) => id !== 'auto')
   }
 }
@@ -151,6 +155,7 @@ function normalizeModelProviderProfile(
     name,
     apiKey: typeof input?.apiKey === 'string' ? input.apiKey.trim() : '',
     baseUrl,
+    endpointFormat: normalizeModelEndpointFormat(input?.endpointFormat),
     models
   }
 }

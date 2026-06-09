@@ -3,12 +3,14 @@ import type {
   ApprovalPolicy,
   AppSettingsPatch,
   AppSettingsV1,
+  ModelEndpointFormat,
   ModelProviderProfileV1,
   ModelProviderSettingsV1,
   SandboxMode
 } from '@shared/app-settings'
 import {
   DEFAULT_MODEL_PROVIDER_ID,
+  MODEL_ENDPOINT_FORMATS,
   DEFAULT_WRITE_INLINE_COMPLETION_BASE_URL,
   DEFAULT_WRITE_INLINE_COMPLETION_MAX_TOKENS,
   DEFAULT_WRITE_INLINE_COMPLETION_MODEL,
@@ -64,6 +66,12 @@ const EMPTY_TOKEN_ECONOMY_SAVINGS_STATE: TokenEconomySavingsState = {
   loading: false,
   loaded: false,
   summary: null
+}
+
+const MODEL_ENDPOINT_FORMAT_LABEL_KEYS: Record<ModelEndpointFormat, string> = {
+  chat_completions: 'modelEndpointChatCompletions',
+  responses: 'modelEndpointResponses',
+  messages: 'modelEndpointMessages'
 }
 
 export function modelProvidersSettingsPatch(input: {
@@ -452,6 +460,7 @@ export function AgentsSettingsSection({ ctx }: { ctx: Record<string, any> }): Re
       name: t('modelProviderNewName', { index }),
       apiKey: '',
       baseUrl: 'https://api.example.com/v1',
+      endpointFormat: 'chat_completions',
       models: []
     }
     updateModelProviders([...modelProviders, nextProvider], { providerId: id })
@@ -581,6 +590,22 @@ export function AgentsSettingsSection({ ctx }: { ctx: Record<string, any> }): Re
                                 placeholder={t('baseUrlPlaceholder')}
                                 onChange={(e) => updateModelProvider(activeProvider.id, { baseUrl: e.target.value })}
                               />
+                            </label>
+                            <label className="grid gap-1.5 text-[12px] font-semibold text-ds-muted">
+                              {t('modelProviderEndpointFormat')}
+                              <select
+                                className={selectControlClass}
+                                value={activeProvider.endpointFormat}
+                                onChange={(e) => updateModelProvider(activeProvider.id, {
+                                  endpointFormat: e.target.value as ModelEndpointFormat
+                                })}
+                              >
+                                {MODEL_ENDPOINT_FORMATS.map((format) => (
+                                  <option key={format} value={format}>
+                                    {t(MODEL_ENDPOINT_FORMAT_LABEL_KEYS[format])}
+                                  </option>
+                                ))}
+                              </select>
                             </label>
                             <label className="grid gap-1.5 text-[12px] font-semibold text-ds-muted">
                               {t('modelProviderModels')}

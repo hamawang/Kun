@@ -489,6 +489,7 @@ describe('legacy Kun defaults migration', () => {
             name: 'Custom Provider',
             apiKey: 'sk-custom',
             baseUrl: 'https://custom.example/v1',
+            endpointFormat: 'responses',
             models: ['custom-model']
           }
         ]
@@ -509,6 +510,7 @@ describe('legacy Kun defaults migration', () => {
           name: 'Custom Provider',
           apiKey: 'sk-custom',
           baseUrl: 'https://custom.example/v1',
+          endpointFormat: 'responses',
           models: ['custom-model']
         })
       ])
@@ -517,7 +519,8 @@ describe('legacy Kun defaults migration', () => {
     expect(resolveKunRuntimeSettings(migrated)).toEqual(
       expect.objectContaining({
         apiKey: 'sk-custom',
-        baseUrl: 'https://custom.example/v1'
+        baseUrl: 'https://custom.example/v1',
+        endpointFormat: 'responses'
       })
     )
   })

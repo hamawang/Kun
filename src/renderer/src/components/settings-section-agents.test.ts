@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
   DEFAULT_MODEL_PROVIDER_ID,
   defaultKunRuntimeSettings,
-  defaultModelProviderSettings
+  defaultModelProviderSettings,
+  type ModelProviderProfileV1
 } from '@shared/app-settings'
 import { AgentsSettingsSection, modelProvidersSettingsPatch } from './settings-section-agents'
 
@@ -16,6 +17,10 @@ const labels: Record<string, string> = {
   agents: 'Agents',
   kunProvider: 'Provider',
   kunProviderDesc: 'Provider description',
+  modelProviderEndpointFormat: 'Endpoint format',
+  modelEndpointChatCompletions: '/v1/chat/completions',
+  modelEndpointResponses: '/v1/responses',
+  modelEndpointMessages: '/v1/messages',
   kunApiKey: 'Kun API key',
   kunApiKeyDesc: 'Kun API key description',
   kunApiKeyPlaceholder: 'Inherit API key',
@@ -304,8 +309,9 @@ describe('AgentsSettingsSection Kun diagnostics smoke', () => {
       name: 'Custom Provider',
       apiKey: '',
       baseUrl: 'https://api.example.com/v1',
+      endpointFormat: 'responses',
       models: []
-    }
+    } satisfies ModelProviderProfileV1
 
     const patch = modelProvidersSettingsPatch({
       provider,
@@ -330,6 +336,7 @@ describe('AgentsSettingsSection Kun diagnostics smoke', () => {
             name: 'Custom Provider',
             apiKey: '',
             baseUrl: 'https://api.example.com/v1',
+            endpointFormat: 'responses',
             models: []
           }
         ]
@@ -349,8 +356,9 @@ describe('AgentsSettingsSection Kun diagnostics smoke', () => {
       name: 'Custom Provider',
       apiKey: '',
       baseUrl: 'https://api.example.com/v1',
+      endpointFormat: 'messages',
       models: []
-    }
+    } satisfies ModelProviderProfileV1
     const html = renderToStaticMarkup(createElement(AgentsSettingsSection, {
       ctx: {
         ...baseCtx(),
@@ -369,6 +377,8 @@ describe('AgentsSettingsSection Kun diagnostics smoke', () => {
     expect(providerIdInput).toBeTruthy()
     expect(providerIdInput).not.toContain('readOnly')
     expect(providerIdInput).not.toContain('readonly')
+    expect(html).toContain('Endpoint format')
+    expect(html).toContain('<option value="messages" selected="">/v1/messages</option>')
   })
 
   it('keeps advanced agent controls behind collapsed disclosures', () => {
