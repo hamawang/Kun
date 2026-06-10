@@ -1,5 +1,6 @@
 import type { FormEvent, ReactElement } from 'react'
 import { useEffect, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   ChevronDown,
   ChevronRight,
@@ -71,6 +72,8 @@ export function WriteSidebar({
   const runtimeConnection = useChatStore((s) => s.runtimeConnection)
   const [entryDialog, setEntryDialog] = useState<EntryDialog | null>(null)
   const [collapsedWorkspaces, setCollapsedWorkspaces] = useState<Record<string, boolean>>({})
+  // Field-level subscription: the sidebar must not re-render on fileContent or
+  // selection updates, which fire on every keystroke in the editor.
   const {
     defaultWorkspaceRoot,
     workspaceRoots,
@@ -94,7 +97,32 @@ export function WriteSidebar({
     deleteEntry,
     refreshWorkspace,
     setFileError
-  } = useWriteWorkspaceStore()
+  } = useWriteWorkspaceStore(
+    useShallow((s) => ({
+      defaultWorkspaceRoot: s.defaultWorkspaceRoot,
+      workspaceRoots: s.workspaceRoots,
+      settingsError: s.settingsError,
+      workspaceRoot: s.workspaceRoot,
+      rootDirectory: s.rootDirectory,
+      entriesByDir: s.entriesByDir,
+      expandedDirs: s.expandedDirs,
+      loadingDirs: s.loadingDirs,
+      treeError: s.treeError,
+      activeFilePath: s.activeFilePath,
+      loadWriteSettings: s.loadWriteSettings,
+      selectWriteWorkspace: s.selectWriteWorkspace,
+      addWriteWorkspace: s.addWriteWorkspace,
+      removeWriteWorkspace: s.removeWriteWorkspace,
+      toggleDirectory: s.toggleDirectory,
+      openFile: s.openFile,
+      createFile: s.createFile,
+      createDirectory: s.createDirectory,
+      renameEntry: s.renameEntry,
+      deleteEntry: s.deleteEntry,
+      refreshWorkspace: s.refreshWorkspace,
+      setFileError: s.setFileError
+    }))
+  )
 
   useEffect(() => {
     void loadWriteSettings()

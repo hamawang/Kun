@@ -9,6 +9,7 @@ import {
   DEFAULT_WRITE_INLINE_LONG_COMPLETION_MIN_ACCEPT_SCORE
 } from '@shared/app-settings'
 import { quotedSelectionFromEditor } from './quoted-selection'
+import { writeSelectionStatesEqual } from './write-selection'
 import { trimWriteRecentEdits } from './recent-edits'
 import type { WriteWorkspaceState } from './write-workspace-store-types'
 import { createWriteSettingsActions } from './write-workspace-settings-actions'
@@ -314,7 +315,10 @@ export const useWriteWorkspaceStore = create<WriteWorkspaceState>((set, get) => 
     set({ assistantModel: normalized })
   },
 
-  setSelection: (selection) => set({ selection }),
+  setSelection: (selection) => {
+    if (writeSelectionStatesEqual(get().selection, selection)) return
+    set({ selection })
+  },
 
   recordRecentEdits: (edits) => {
     if (edits.length === 0) return

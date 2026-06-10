@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   FileText,
   ListTodo,
@@ -76,6 +77,8 @@ export function WriteAssistantPanel({
   className = ''
 }: Props): ReactElement {
   const { t } = useTranslation('common')
+  // Field-level subscription: keeps the assistant panel from re-rendering on
+  // fileContent updates emitted for every keystroke in the editor.
   const {
     workspaceRoot,
     activeFilePath,
@@ -83,7 +86,16 @@ export function WriteAssistantPanel({
     quotedSelections,
     quoteCurrentSelection,
     removeQuotedSelection
-  } = useWriteWorkspaceStore()
+  } = useWriteWorkspaceStore(
+    useShallow((s) => ({
+      workspaceRoot: s.workspaceRoot,
+      activeFilePath: s.activeFilePath,
+      selection: s.selection,
+      quotedSelections: s.quotedSelections,
+      quoteCurrentSelection: s.quoteCurrentSelection,
+      removeQuotedSelection: s.removeQuotedSelection
+    }))
+  )
   const activeFileLabel = activeFilePath
     ? writeRelativeToWorkspace(workspaceRoot, activeFilePath)
     : t('writeNoFileOpen')

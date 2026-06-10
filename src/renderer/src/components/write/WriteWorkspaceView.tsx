@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   Columns2,
   Eye,
@@ -33,7 +34,7 @@ import {
   INLINE_EDIT_RECENT_CONTEXT_CHARS,
   WRITE_AUTOSAVE_MS,
   WRITE_EXPORT_NOTICE_MS,
-  WRITE_PREVIEW_DEBOUNCE_MS,
+  writePreviewDebounceMs,
   WRITE_RICH_CLIPBOARD_ACTION,
   exportFormatLabel,
   formatSaveLabel,
@@ -59,6 +60,9 @@ export function WriteWorkspaceView({
   const { t } = useTranslation('common')
   const ensureWriteThreadForWorkspace = useChatStore((s) => s.ensureWriteThreadForWorkspace)
   const runtimeConnection = useChatStore((s) => s.runtimeConnection)
+  // Field-level subscription: this view must follow fileContent, but it should
+  // not re-render for sidebar-only state such as the directory tree or quoted
+  // selections.
   const {
     workspaceRoot,
     activeFilePath,
@@ -92,7 +96,42 @@ export function WriteWorkspaceView({
     setSelection,
     recordRecentEdits,
     quoteCurrentSelection
-  } = useWriteWorkspaceStore()
+  } = useWriteWorkspaceStore(
+    useShallow((s) => ({
+      workspaceRoot: s.workspaceRoot,
+      activeFilePath: s.activeFilePath,
+      activeFileKind: s.activeFileKind,
+      rootDirectory: s.rootDirectory,
+      inlineCompletion: s.inlineCompletion,
+      inlineCompletionApiReady: s.inlineCompletionApiReady,
+      fileContent: s.fileContent,
+      imageDataUrl: s.imageDataUrl,
+      imageMimeType: s.imageMimeType,
+      fileSize: s.fileSize,
+      fileTruncated: s.fileTruncated,
+      fileError: s.fileError,
+      fileLoading: s.fileLoading,
+      saveStatus: s.saveStatus,
+      previewMode: s.previewMode,
+      assistantOpen: s.assistantOpen,
+      selection: s.selection,
+      recentEdits: s.recentEdits,
+      loadWriteSettings: s.loadWriteSettings,
+      addWriteWorkspace: s.addWriteWorkspace,
+      setFileContent: s.setFileContent,
+      syncActiveFileFromDisk: s.syncActiveFileFromDisk,
+      syncActiveImageFromDisk: s.syncActiveImageFromDisk,
+      flushSave: s.flushSave,
+      createFile: s.createFile,
+      refreshWorkspace: s.refreshWorkspace,
+      setFileError: s.setFileError,
+      setPreviewMode: s.setPreviewMode,
+      setAssistantOpen: s.setAssistantOpen,
+      setSelection: s.setSelection,
+      recordRecentEdits: s.recordRecentEdits,
+      quoteCurrentSelection: s.quoteCurrentSelection
+    }))
+  )
   const saveTimerRef = useRef<number | null>(null)
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
   const modeMenuRef = useRef<HTMLDivElement | null>(null)
@@ -117,7 +156,7 @@ export function WriteWorkspaceView({
     fileSize,
     truncated: fileTruncated
   })
-  const debouncedPreviewContent = useDebouncedValue(fileContent, WRITE_PREVIEW_DEBOUNCE_MS)
+  const debouncedPreviewContent = useDebouncedValue(fileContent, writePreviewDebounceMs(fileContent.length))
   const saveLabel = activeFileIsImage
     ? t('writeImagePreview')
     : renderSafety.readOnly ? t('writeReadOnly') : formatSaveLabel(saveStatus, t)

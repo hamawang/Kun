@@ -14,6 +14,7 @@ import {
   buildWriteTermPropagationChanges,
   type WriteTermReplacementSeed
 } from '../../write/term-propagation'
+import { writeSelectionStatesEqual } from '../../write/write-selection'
 
 export type WriteSelectionAnchorRect = {
   left: number
@@ -346,6 +347,8 @@ export function WriteMarkdownEditor({
   const onImagePasteSavedRef = useRef(onImagePasteSaved)
   const onImagePasteErrorRef = useRef(onImagePasteError)
   const valueRef = useRef(value)
+  const lastSelectionRef = useRef<WriteEditorSelectionState | null>(null)
+  const lastEmittedValueRef = useRef<string | null>(null)
 
   workspaceRootRef.current = workspaceRoot ?? ''
   filePathRef.current = filePath ?? ''
@@ -515,18 +518,34 @@ export function WriteMarkdownEditor({
           const termPropagationSync = update.transactions.some((transaction) =>
             transaction.annotation(termPropagationAnnotation)
           )
+          // Materialise the document string at most once per update; on large
+          // documents doc.toString() walks the whole rope and used to run for
+          // both the onChange emit and the term propagation scan.
+          let docString: string | null = null
+          const docText = (): string => {
+            if (docString === null) docString = update.state.doc.toString()
+            return docString
+          }
           if (update.docChanged && !externalValueSync) {
             const recentEdits = recentEditsFromUpdate(update, filePathRef.current)
             if (recentEdits.length > 0) onDocumentEditRef.current?.(recentEdits)
-            onChangeRef.current(update.state.doc.toString())
+            lastEmittedValueRef.current = docText()
+            onChangeRef.current(lastEmittedValueRef.current)
           }
           if (update.docChanged || update.selectionSet) {
-            onSelectionChangeRef.current(selectionState(update.view))
+            const nextSelection = selectionState(update.view)
+            if (
+              !lastSelectionRef.current ||
+              !writeSelectionStatesEqual(lastSelectionRef.current, nextSelection)
+            ) {
+              lastSelectionRef.current = nextSelection
+              onSelectionChangeRef.current(nextSelection)
+            }
           }
           if (update.docChanged && !externalValueSync && !termPropagationSync) {
             const seed = termReplacementSeedFromUpdate(update)
             if (seed) {
-              const content = update.state.doc.toString()
+              const content = docText()
               const rawPropagationChanges = [
                 ...buildWriteTermPropagationChanges(content, seed),
                 ...buildWriteCanonicalTermPropagationChanges(content, seed)
@@ -555,7 +574,10 @@ export function WriteMarkdownEditor({
       parent: hostRef.current
     })
     viewRef.current = view
-    onSelectionChangeRef.current(selectionState(view))
+    lastEmittedValueRef.current = valueRef.current
+    const initialSelection = selectionState(view)
+    lastSelectionRef.current = initialSelection
+    onSelectionChangeRef.current(initialSelection)
 
     return () => {
       view.destroy()
@@ -586,10 +608,17 @@ export function WriteMarkdownEditor({
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
+    // The value usually round-trips from our own onChange emit; comparing the
+    // reference first avoids re-serialising the whole document per keystroke.
+    if (value === lastEmittedValueRef.current) return
     const current = view.state.doc.toString()
-    if (current === value) return
+    if (current === value) {
+      lastEmittedValueRef.current = value
+      return
+    }
     const nextLength = value.length
     const { anchor, head } = view.state.selection.main
+    lastEmittedValueRef.current = value
     view.dispatch({
       changes: { from: 0, to: current.length, insert: value },
       annotations: externalValueSyncAnnotation.of(true),

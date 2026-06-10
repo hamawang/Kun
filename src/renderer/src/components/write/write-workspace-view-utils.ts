@@ -4,6 +4,18 @@ import type { WritePreviewMode, WriteSaveStatus } from '../../write/write-worksp
 
 export const WRITE_AUTOSAVE_MS = 900
 export const WRITE_PREVIEW_DEBOUNCE_MS = 60
+
+/**
+ * Preview re-render debounce that scales with document size: small files keep
+ * the near-instant 60ms feel while large documents stop re-parsing the whole
+ * Markdown tree on every keystroke.
+ */
+export function writePreviewDebounceMs(contentLength: number): number {
+  if (contentLength < 30_000) return WRITE_PREVIEW_DEBOUNCE_MS
+  if (contentLength < 120_000) return 180
+  if (contentLength < 300_000) return 320
+  return 500
+}
 export const INLINE_AGENT_MIN_WIDTH = 280
 export const INLINE_AGENT_MAX_WIDTH = 440
 export const INLINE_AGENT_FALLBACK_HEIGHT = 56

@@ -1,5 +1,13 @@
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/language'
-import { EditorSelection, Facet, StateField, type EditorState, type Extension } from '@codemirror/state'
+import {
+  EditorSelection,
+  Facet,
+  StateField,
+  type ChangeDesc,
+  type EditorState,
+  type Extension,
+  type Transaction
+} from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import {
@@ -377,12 +385,58 @@ function buildDecorationSet(ranges: DecorationRange[]): DecorationSet {
   )
 }
 
-function buildMarkdownBlockDecorations(state: EditorState): DecorationSet {
+type TableEntry = BlockRange & { table: ParsedTable }
+
+type BlockPreviewState = {
+  decorations: DecorationSet
+  codeBlocks: CodeBlockRange[]
+  tables: TableEntry[]
+  activeKey: string
+}
+
+// Characters that can introduce or break a fenced code block or table row.
+// Edits whose surrounding lines contain none of these cannot change the block
+// structure, so the expensive whole-document scan can be skipped.
+const BLOCK_STRUCTURE_MARKERS = /[`~|]/
+
+function scanBlockRanges(state: EditorState): { codeBlocks: CodeBlockRange[]; tables: TableEntry[] } {
+  const noActiveLines = new Set<number>()
+  return {
+    codeBlocks: collectMarkdownCodeBlockRangesFromState(state, 0, state.doc.length, noActiveLines),
+    tables: collectMarkdownTableRangesFromState(state, 0, state.doc.length, noActiveLines)
+  }
+}
+
+function revealedBlockKey(
+  state: EditorState,
+  codeBlocks: CodeBlockRange[],
+  tables: TableEntry[],
+  activeLines: Set<number>
+): string {
+  const revealed: string[] = []
+  for (const block of codeBlocks) {
+    if (rangeTouchesActiveLine(state, block.from, block.to, activeLines)) {
+      revealed.push(`c${block.from}-${block.to}`)
+    }
+  }
+  for (const table of tables) {
+    if (rangeTouchesActiveLine(state, table.from, table.to, activeLines)) {
+      revealed.push(`t${table.from}-${table.to}`)
+    }
+  }
+  return revealed.join('|')
+}
+
+function assembleBlockPreview(
+  state: EditorState,
+  codeBlocks: CodeBlockRange[],
+  tables: TableEntry[]
+): BlockPreviewState {
   const activeLines = collectActiveLinesFromState(state)
   const ranges: DecorationRange[] = []
   const renderedBlocks: BlockRange[] = []
 
-  for (const codeRange of collectMarkdownCodeBlockRangesFromState(state, 0, state.doc.length, activeLines)) {
+  for (const codeRange of codeBlocks) {
     if (rangeTouchesActiveLine(state, codeRange.from, codeRange.to, activeLines)) continue
     renderedBlocks.push({ from: codeRange.from, to: codeRange.to })
     ranges.push({
@@ -395,7 +449,8 @@ function buildMarkdownBlockDecorations(state: EditorState): DecorationSet {
     })
   }
 
-  for (const tableRange of collectMarkdownTableRangesFromState(state, 0, state.doc.length, activeLines)) {
+  for (const tableRange of tables) {
+    if (rangeTouchesActiveLine(state, tableRange.from, tableRange.to, activeLines)) continue
     if (isInsideBlockRanges(tableRange.from, tableRange.to, renderedBlocks)) continue
     ranges.push({
       from: tableRange.from,
@@ -404,20 +459,73 @@ function buildMarkdownBlockDecorations(state: EditorState): DecorationSet {
     })
   }
 
-  return buildDecorationSet(ranges)
+  return {
+    decorations: buildDecorationSet(ranges),
+    codeBlocks,
+    tables,
+    activeKey: revealedBlockKey(state, codeBlocks, tables, activeLines)
+  }
 }
 
-const markdownBlockPreviewField = StateField.define<DecorationSet>({
-  create(state) {
-    return buildMarkdownBlockDecorations(state)
-  },
-  update(decorations, transaction) {
-    if (transaction.docChanged || transaction.selection) {
-      return buildMarkdownBlockDecorations(transaction.state)
+function blockStructureMayHaveChanged(
+  transaction: Transaction,
+  cached: { codeBlocks: CodeBlockRange[]; tables: TableEntry[] }
+): boolean {
+  let suspicious = false
+  transaction.changes.iterChanges((fromA, toA, fromB, toB) => {
+    if (suspicious) return
+    if (BLOCK_STRUCTURE_MARKERS.test(transaction.startState.sliceDoc(fromA, toA))) {
+      suspicious = true
+      return
     }
-    return decorations
+    const startLine = transaction.state.doc.lineAt(fromB)
+    const endLine = transaction.state.doc.lineAt(Math.min(transaction.state.doc.length, toB))
+    if (BLOCK_STRUCTURE_MARKERS.test(transaction.state.sliceDoc(startLine.from, endLine.to))) {
+      suspicious = true
+      return
+    }
+    const touchesBlock = (range: BlockRange): boolean => fromA <= range.to && toA >= range.from
+    if (cached.codeBlocks.some(touchesBlock) || cached.tables.some(touchesBlock)) {
+      suspicious = true
+    }
+  })
+  return suspicious
+}
+
+function mapBlockRange<T extends BlockRange>(range: T, changes: ChangeDesc): T {
+  return {
+    ...range,
+    from: changes.mapPos(range.from, 1),
+    to: changes.mapPos(range.to, -1)
+  }
+}
+
+const markdownBlockPreviewField = StateField.define<BlockPreviewState>({
+  create(state) {
+    const { codeBlocks, tables } = scanBlockRanges(state)
+    return assembleBlockPreview(state, codeBlocks, tables)
   },
-  provide: (field) => EditorView.decorations.from(field)
+  update(value, transaction) {
+    if (transaction.docChanged) {
+      // Fast path: edits that cannot alter block structure only shift the
+      // cached ranges instead of rescanning every line of the document.
+      if (blockStructureMayHaveChanged(transaction, value)) {
+        const { codeBlocks, tables } = scanBlockRanges(transaction.state)
+        return assembleBlockPreview(transaction.state, codeBlocks, tables)
+      }
+      const codeBlocks = value.codeBlocks.map((range) => mapBlockRange(range, transaction.changes))
+      const tables = value.tables.map((range) => mapBlockRange(range, transaction.changes))
+      return assembleBlockPreview(transaction.state, codeBlocks, tables)
+    }
+    if (transaction.selection) {
+      const activeLines = collectActiveLinesFromState(transaction.state)
+      const activeKey = revealedBlockKey(transaction.state, value.codeBlocks, value.tables, activeLines)
+      if (activeKey === value.activeKey) return value
+      return assembleBlockPreview(transaction.state, value.codeBlocks, value.tables)
+    }
+    return value
+  },
+  provide: (field) => EditorView.decorations.from(field, (value) => value.decorations)
 })
 
 function buildMarkdownDecorations(view: EditorView): DecorationSet {
@@ -425,16 +533,30 @@ function buildMarkdownDecorations(view: EditorView): DecorationSet {
   const imageContext = view.state.facet(markdownImageContextFacet)
   const ranges: DecorationRange[] = []
   const renderedBlocks: BlockRange[] = []
+  // Reuse the block ranges cached by markdownBlockPreviewField so scrolling,
+  // typing, and cursor movement never trigger another whole-document scan.
+  const blockCache = view.state.field(markdownBlockPreviewField, false) ?? null
 
   for (const { from, to } of view.visibleRanges) {
-    for (const codeRange of collectMarkdownCodeBlockRanges(view, from, to, activeLines)) {
+    const codeRanges = blockCache
+      ? blockCache.codeBlocks.filter((block) => block.to >= from && block.from <= to)
+      : collectMarkdownCodeBlockRanges(view, from, to, activeLines)
+    for (const codeRange of codeRanges) {
       renderedBlocks.push({ from: codeRange.from, to: codeRange.to })
       addFencedCodeLineDecorations(view, codeRange, activeLines, ranges)
     }
   }
 
   for (const { from, to } of view.visibleRanges) {
-    for (const tableRange of collectMarkdownTableRanges(view, from, to, activeLines)) {
+    const tableRanges = blockCache
+      ? blockCache.tables.filter(
+          (table) =>
+            table.to >= from &&
+            table.from <= to &&
+            !rangeTouchesActiveLine(view.state, table.from, table.to, activeLines)
+        )
+      : collectMarkdownTableRanges(view, from, to, activeLines)
+    for (const tableRange of tableRanges) {
       renderedBlocks.push({ from: tableRange.from, to: tableRange.to })
     }
   }
