@@ -56,7 +56,8 @@ function settings(): AppSettingsV1 {
     claw: defaultClawSettings(),
     schedule: defaultScheduleSettings(),
     guiUpdate: { channel: 'stable' },
-    codePromptPrefix: ''
+    codePromptPrefix: '',
+    disabledSkillIds: []
   }
 }
 

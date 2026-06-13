@@ -164,6 +164,7 @@ export type ChatState = {
   composerProviderId: string
   composerPickList: string[]
   composerModelGroups: ModelProviderModelGroup[]
+  disabledSkillIds: string[]
   queuedMessages: QueuedUserMessage[]
   watchTurnCompletion: Record<string, boolean>
   unreadThreadIds: Record<string, boolean>

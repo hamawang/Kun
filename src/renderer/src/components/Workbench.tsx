@@ -333,6 +333,7 @@ export function Workbench(): ReactElement {
     composerProviderId,
     composerPickList,
     composerModelGroups,
+    disabledSkillIds,
     setComposerModel,
     setThreadSearch,
     setShowArchivedThreads,
@@ -390,6 +391,7 @@ export function Workbench(): ReactElement {
       composerProviderId: s.composerProviderId,
       composerPickList: s.composerPickList,
       composerModelGroups: s.composerModelGroups,
+      disabledSkillIds: s.disabledSkillIds,
       setComposerModel: s.setComposerModel,
       setThreadSearch: s.setThreadSearch,
       setShowArchivedThreads: s.setShowArchivedThreads,
@@ -2369,6 +2371,7 @@ export function Workbench(): ReactElement {
                 changedFiles={composerChangeSummary?.files}
                 changedFileStats={composerChangeSummary}
                 skillCommands={runtimeSkills}
+                disabledSkillIds={disabledSkillIds}
                 onPickAttachments={(files) => void handlePickAttachments(files)}
                 onPasteClipboardImage={(options) => void handlePasteClipboardImage(options)}
                 onRemoveAttachment={removeComposerAttachment}

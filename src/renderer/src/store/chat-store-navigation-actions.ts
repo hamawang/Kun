@@ -399,7 +399,11 @@ export function createNavigationActions(
               )
                 ? state.activeClawChannelId
                 : channels.find((channel) => channel.enabled)?.id ?? ''
-              set({ clawChannels: channels, activeClawChannelId: activeChannelId })
+              set({
+                disabledSkillIds: settings.disabledSkillIds,
+                clawChannels: channels,
+                activeClawChannelId: activeChannelId
+              })
               void get().refreshThreads()
               if (state.route === 'claw' && state.activeClawChannelId === channelId) {
                 if (state.activeThreadId !== threadId) {
@@ -418,6 +422,7 @@ export function createNavigationActions(
           workspaceRoot,
           codeWorkspaceRoots,
           workspaceLabel: workspaceLabelFromPath(workspaceRoot),
+          disabledSkillIds: settings.disabledSkillIds,
           clawChannels: settings.claw.channels,
           activeClawChannelId: settings.claw.channels.find((channel) => channel.enabled)?.id ?? '',
           runtimeConnection: needsInitialSetup ? 'idle' : get().runtimeConnection,
