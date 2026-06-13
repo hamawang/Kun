@@ -272,6 +272,69 @@ Use `GET /v1/runtime/info` for the runtime capability manifest and
 `GET /v1/runtime/tools` for redacted provider diagnostics. The GUI
 Settings page reads both routes.
 
+## Hooks
+
+Hooks let external commands observe and intervene in the agent
+lifecycle without rebuilding Kun. They are configured under the
+top-level `hooks` key in `config.json` (so the GUI's
+`~/.deepseekgui/kun/config.json` works out of the box) and run inside
+the serve runtime — main loop, subagents, and CLI alike.
+
+```json
+{
+  "hooks": [
+    {
+      "phase": "PreToolUse",
+      "matcher": "bash|write_file|mcp__*",
+      "command": "node ~/.kun-hooks/guard.js",
+      "timeoutMs": 10000
+    },
+    { "phase": "UserPromptSubmit", "command": "~/.kun-hooks/prompt-context.sh" },
+    { "phase": "TurnEnd", "command": "~/.kun-hooks/notify.sh" }
+  ]
+}
+```
+
+Phases:
+
+- `PreToolUse` — before every tool call. May rewrite `arguments`, deny
+  the call, or auto-approve it (skip the approval prompt).
+- `PostToolUse` — after every tool call. May replace `output` or mark
+  the result as an error.
+- `UserPromptSubmit` — before the first model step of a turn. May deny
+  the turn or inject `additionalContext`, which is persisted as an
+  extra `<hook-context>` user message.
+- `TurnStart`, `TurnEnd`, `PreCompact` — observe-only notifications.
+  Failures surface as `hook_warning` runtime events and never break
+  the turn.
+
+Matching: `matcher` is a glob over the tool name (`*` wildcard, `|`
+alternation); `toolNames` is an exact-name list. Either match runs the
+hook; omit both to run on every tool. Lifecycle phases ignore matchers.
+
+Command protocol: the hook receives the invocation as JSON on stdin
+(`phase` plus phase-specific fields such as `call`, `result`, `prompt`,
+`status`, `reason`). Exit `0` parses stdout as a JSON result
+(`{"decision":"deny"}`, `{"arguments":{...}}`, `{"output":...}`,
+`{"additionalContext":"..."}`); plain-text stdout becomes
+`additionalContext` for `UserPromptSubmit` and a message elsewhere.
+Exit `2` blocks the action with stderr as the reason. Any other exit
+code is a non-blocking `hook_warning`. The default timeout is 60s
+(`timeoutMs` overrides); a timed-out hook fails the tool call closed
+but never blocks observe-only phases.
+
+Hooks chain in declaration order: each hook sees the call or result as
+rewritten by the hooks before it. Embedders that assemble the runtime
+programmatically can also pass in-process function hooks via the
+`hooks` option of `LocalToolHost` and `AgentLoop` (exported from
+`kun/hooks`).
+
+Command hooks execute arbitrary shell commands with the runtime's
+privileges — treat `config.json` as trusted input.
+
+See `../docs/kun-hooks.en.md` for the full reference: per-phase stdin
+payloads, result fields, failure semantics, and example hook scripts.
+
 ## Data directory layout
 
 `--data-dir` is the on-disk root for everything the runtime owns:

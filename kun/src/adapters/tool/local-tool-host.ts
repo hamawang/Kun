@@ -12,11 +12,12 @@ import { makeToolResultItem, makeApprovalItem } from '../../domain/item.js'
 import { buildBuiltinLocalTools } from './builtin-tools.js'
 import { CapabilityRegistry } from './capability-registry.js'
 import {
-  applyPostToolHookResults,
-  applyPreToolHookResults,
-  runToolHooks,
-  type ResolvedToolHook
-} from './tool-hooks.js'
+  runPostToolUseHooks,
+  runPreToolUseHooks,
+  type PostToolUseOutcome,
+  type PreToolUseOutcome,
+  type ResolvedHook
+} from '../../hooks/hook-engine.js'
 import {
   normalizeRateLimitedToolOutput
 } from './tool-rate-limit.js'
@@ -61,8 +62,8 @@ export type LocalToolHostOptions = {
   registry?: CapabilityRegistry
   /** Allow-list for `untrusted` policy. Tools outside the list always prompt. */
   allowList?: string[]
-  /** Optional PreToolUse/PostToolUse hooks. */
-  hooks?: readonly ResolvedToolHook[]
+  /** Optional PreToolUse/PostToolUse hooks (lifecycle phases are ignored here). */
+  hooks?: readonly ResolvedHook[]
   /** Runtime read-before-edit guard. Disabled by default for direct unit use. */
   readTracker?: boolean | ReadTrackerOptions
 }
@@ -85,7 +86,7 @@ export class LocalToolHost implements ToolHost {
   readonly id = 'local'
   private readonly registry: CapabilityRegistry
   private readonly allowList: Set<string>
-  private readonly hooks: readonly ResolvedToolHook[]
+  private readonly hooks: readonly ResolvedHook[]
   private readonly readTracker: ReadTracker
 
   constructor(options: LocalToolHostOptions) {
@@ -122,15 +123,11 @@ export class LocalToolHost implements ToolHost {
         approved: false
       }
     }
-    let preHookResults
+    let preHooks: PreToolUseOutcome
     try {
-      preHookResults = await runToolHooks({
-        hooks: this.hooks,
-        invocation: {
-          phase: 'PreToolUse',
-          call,
-          context: hookContext(context)
-        }
+      preHooks = await runPreToolUseHooks(this.hooks, {
+        call,
+        context: hookContext(context)
       })
     } catch (error) {
       return {
@@ -138,14 +135,13 @@ export class LocalToolHost implements ToolHost {
         approved: false
       }
     }
-    const preHookDecision = applyPreToolHookResults(call, preHookResults)
-    if (preHookDecision.denied) {
+    if (preHooks.denied) {
       return {
-        item: this.errorToolResult(context, preHookDecision.call, tool, preHookDecision.denied, 'hook_denied'),
+        item: this.errorToolResult(context, preHooks.call, tool, preHooks.denied, 'hook_denied'),
         approved: false
       }
     }
-    const activeCall = preHookDecision.call
+    const activeCall = preHooks.call
     const readValidation = this.readTracker.validateBeforeTool({ context, call: activeCall })
     if (!readValidation.ok) {
       return {
@@ -166,7 +162,7 @@ export class LocalToolHost implements ToolHost {
         approved: false
       }
     }
-    const needsApproval = this.requiresApproval(tool, activeCall, context)
+    const needsApproval = !preHooks.autoApproved && this.requiresApproval(tool, activeCall, context)
     if (needsApproval) {
       const approvalId = `appr_${activeCall.callId}`
       const approval: ApprovalRequest = createApprovalRequest({
@@ -220,16 +216,12 @@ export class LocalToolHost implements ToolHost {
         approved: true
       }
     }
-    let postHookResults
+    let hookedResult: PostToolUseOutcome
     try {
-      postHookResults = await runToolHooks({
-        hooks: this.hooks,
-        invocation: {
-          phase: 'PostToolUse',
-          call: activeCall,
-          context: hookContext(context),
-          result
-        }
+      hookedResult = await runPostToolUseHooks(this.hooks, {
+        call: activeCall,
+        context: hookContext(context),
+        result
       })
     } catch (error) {
       return {
@@ -237,7 +229,6 @@ export class LocalToolHost implements ToolHost {
         approved: true
       }
     }
-    const hookedResult = applyPostToolHookResults(result, postHookResults)
     const rateLimited = normalizeRateLimitedToolOutput(hookedResult.output)
     const output = rateLimited.rateLimited ? rateLimited.output : hookedResult.output
     const isError = hookedResult.isError || rateLimited.isError

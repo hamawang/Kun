@@ -387,6 +387,7 @@ npm run release:win     # 手动兜底：构建并上传 Windows release 资源
 | [docs/kun-cache-optimization.md](docs/kun-cache-optimization.md) | Kun 缓存优化、token economy、MCP search、工具输出压缩与用量收益统计 |
 | [docs/model-provider-presets.md](docs/model-provider-presets.md) | DeepSeek、Xiaomi MiMo、MiniMax provider 预设与模型能力说明 |
 | [docs/kun-contributing.md](docs/kun-contributing.md) | Kun 贡献指南：六边形架构、设计模式（Ports & Adapters / Functional Core Imperative Shell / 事件溯源 / 显式 DI / Composition Root）、4 个典型 PR 场景 |
+| [docs/kun-hooks.md](docs/kun-hooks.md) | Kun hooks 体系：六阶段、外部命令协议、匹配与链式语义、配置与嵌入方 API |
 | [kun/README.md](kun/README.md) | Kun 包：CLI、env、data dir、HTTP API |
 | [CONTRIBUTING.zh-CN.md](docs/CONTRIBUTING.zh-CN.md) | 贡献说明 |
 | [DEVELOPMENT.zh-CN.md](docs/DEVELOPMENT.zh-CN.md) | 本地开发与协作流程 |

@@ -63,6 +63,7 @@ import {
   type ModelEndpointFormat
 } from '../contracts/model-endpoint-format.js'
 import { SkillRuntime } from '../skills/skill-runtime.js'
+import { resolveConfiguredHooks, type HooksConfig } from '../hooks/hook-config.js'
 import { FileMemoryStore } from '../memory/memory-store.js'
 import { DelegationRuntime, FileDelegationStore } from '../delegation/delegation-runtime.js'
 import { createChildAgentExecutor } from '../delegation/child-agent-executor.js'
@@ -87,6 +88,8 @@ export type KunServeRuntimeOptions = {
   runtime?: RuntimeTuningConfig
   storage?: StorageConfig
   capabilities?: KunCapabilitiesConfig
+  /** Command hooks from config.json; resolved and wired into tool hosts and the loop. */
+  hooks?: HooksConfig
   startedAt?: string
 }
 
@@ -213,8 +216,13 @@ export async function createKunServeRuntime(
     ...musicGenProviders.providers,
     ...videoGenProviders.providers
   ]
+  const resolvedHooks = resolveConfiguredHooks(options.hooks)
   const childRegistry = new CapabilityRegistry(baseToolProviders)
-  const childToolHost = new LocalToolHost({ registry: childRegistry, readTracker: true })
+  const childToolHost = new LocalToolHost({
+    registry: childRegistry,
+    readTracker: true,
+    ...(resolvedHooks.length ? { hooks: resolvedHooks } : {})
+  })
   const delegationRuntime = options.capabilities?.subagents.enabled
     ? new DelegationRuntime({
         config: options.capabilities.subagents,
@@ -311,7 +319,11 @@ export async function createKunServeRuntime(
     },
     ...buildDelegationToolProviders(delegationRuntime)
   ])
-  const toolHost = new LocalToolHost({ registry, readTracker: true })
+  const toolHost = new LocalToolHost({
+    registry,
+    readTracker: true,
+    ...(resolvedHooks.length ? { hooks: resolvedHooks } : {})
+  })
   const loop = new AgentLoop({
     threadStore,
     sessionStore,
@@ -334,6 +346,7 @@ export async function createKunServeRuntime(
     contextCompaction: options.contextCompaction,
     ...(options.runtime?.toolStorm ? { toolStorm: options.runtime.toolStorm } : {}),
     ...(options.runtime?.toolArgumentRepair ? { toolArgumentRepair: options.runtime.toolArgumentRepair } : {}),
+    ...(resolvedHooks.length ? { hooks: resolvedHooks } : {}),
     ...(attachmentStore ? { attachmentStore } : {}),
     ...(memoryStore ? { memoryStore } : {}),
     onPlanWritten: async ({ threadId, planId, relativePath, markdown }) => {

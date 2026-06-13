@@ -213,6 +213,32 @@ Kun 内置 DeepSeek V4 默认模型画像：
 
 设置页会保存这些字段。GUI 模式下默认模型以 `agents.kun.model` 为准；`config.json` 里的 `serve.model` 更适合 standalone `kun serve` 使用，因为 GUI 启动时会把设置页里的模型作为启动参数传给 Kun。
 
+## Hooks 配置写在哪里
+
+Hooks 写在 `config.json` 顶层的 `hooks` 数组里，GUI 启动 Kun 时通过
+`--data-dir` 自动加载，无需额外开关：
+
+```json
+{
+  "hooks": [
+    {
+      "phase": "PreToolUse",
+      "matcher": "bash|write_file|mcp__*",
+      "command": "node ~/.kun-hooks/guard.js",
+      "timeoutMs": 10000
+    },
+    { "phase": "UserPromptSubmit", "command": "~/.kun-hooks/prompt-context.sh" }
+  ]
+}
+```
+
+支持的 `phase`：`PreToolUse`、`PostToolUse`（工具调用前后，可改写参数 /
+输出、拒绝或自动放行）、`UserPromptSubmit`（回合开始前，可拒绝或注入
+上下文）、`TurnStart`、`TurnEnd`、`PreCompact`（只读通知）。命令通过
+stdin 收到 JSON invocation，退出码 `0` + stdout JSON 返回结构化结果，
+退出码 `2` 阻断动作，其余非零只产生 `hook_warning` 事件。完整参考
+（各阶段载荷、失败语义、示例脚本）见 [kun-hooks.md](kun-hooks.md)。
+
 ## 用户如何自定义
 
 常见做法：

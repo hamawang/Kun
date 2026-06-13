@@ -20,6 +20,7 @@ import {
   MODEL_ENDPOINT_FORMATS,
   normalizeModelEndpointFormat
 } from '../contracts/model-endpoint-format.js'
+import { HooksConfigSchema } from '../hooks/hook-config.js'
 
 export const KUN_CONFIG_FILENAME = 'config.json'
 export const DEFAULT_KUN_MODEL = 'deepseek-v4-pro'
@@ -195,7 +196,8 @@ export const KunConfigSchema = z
     models: ModelConfigSchema.optional(),
     contextCompaction: ContextCompactionConfigSchema.optional(),
     runtime: RuntimeTuningConfigSchema.optional(),
-    capabilities: KunCapabilitiesConfig.default(DEFAULT_KUN_CAPABILITIES_CONFIG)
+    capabilities: KunCapabilitiesConfig.default(DEFAULT_KUN_CAPABILITIES_CONFIG),
+    hooks: HooksConfigSchema.optional()
   })
   .strict()
 

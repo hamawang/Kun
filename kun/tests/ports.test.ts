@@ -298,7 +298,10 @@ describe('LocalToolHost', () => {
         {
           phase: 'PostToolUse',
           toolNames: ['echo'],
-          run: ({ result }) => ({ output: { wrapped: result?.output } })
+          run: (invocation) => {
+            if (invocation.phase !== 'PostToolUse') return
+            return { output: { wrapped: invocation.result.output } }
+          }
         }
       ]
     })

@@ -400,6 +400,7 @@ For the full development workflow, see [DEVELOPMENT.md](./docs/DEVELOPMENT.md).
 | [docs/kun-cache-optimization.en.md](docs/kun-cache-optimization.en.md) | Kun cache optimization, token economy, MCP search, tool-output compaction, and usage savings |
 | [docs/model-provider-presets.md](docs/model-provider-presets.md) | DeepSeek, Xiaomi MiMo, and MiniMax provider presets and model capabilities |
 | [docs/kun-contributing.en.md](docs/kun-contributing.en.md) | Kun contribution guide: hexagonal architecture, design patterns (Ports & Adapters / Functional Core Imperative Shell / event sourcing / explicit DI / composition root), four typical PR scenarios |
+| [docs/kun-hooks.en.md](docs/kun-hooks.en.md) | Kun hooks: the six phases, external command protocol, matching and chaining semantics, configuration, and the embedder API |
 | [kun/README.md](kun/README.md) | Kun package: CLI, env, data dir, HTTP API |
 | [CONTRIBUTING.en.md](docs/CONTRIBUTING.en.md) | Contribution guide |
 | [DEVELOPMENT.en.md](docs/DEVELOPMENT.en.md) | Local development workflow |
