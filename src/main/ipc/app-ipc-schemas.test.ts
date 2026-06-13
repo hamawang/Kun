@@ -163,7 +163,8 @@ describe('app-ipc-schemas', () => {
             { id: 'custom-1', label: '', prompt: '' }
           ]
         }
-      }
+      },
+      disabledSkillIds: ['test-skill-08']
     })
 
     expect(payload.agents?.kun?.port).toBe(9000)
@@ -173,6 +174,7 @@ describe('app-ipc-schemas', () => {
     expect(payload.write?.inlineCompletion?.model).toBe('deepseek-v4-pro')
     expect(payload.write?.selectionAssist?.infographicPrompt).toBe('手绘风格信息图。')
     expect(payload.write?.selectionAssist?.quickActions).toHaveLength(2)
+    expect(payload.disabledSkillIds).toEqual(['test-skill-08'])
   })
 
   it('accepts media generation settings and provider capability patches', () => {

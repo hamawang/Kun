@@ -710,6 +710,8 @@ export type AppSettingsV1 = {
   schedule: ScheduleSettingsV1
   guiUpdate: GuiUpdateConfigV1
   codePromptPrefix: string
+  /** User-disabled skill IDs. Disabled skills are hidden from command surfaces. */
+  disabledSkillIds: string[]
 }
 
 export type AppSettingsPatch = Partial<
