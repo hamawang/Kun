@@ -10,7 +10,6 @@ import {
   FolderPlus,
   FolderOpen,
   GitBranch,
-  GitFork,
   Loader2,
   PencilLine,
   Plus,
@@ -773,6 +772,7 @@ export function SidebarProjectsSection({
                       {!showArchived && !searchQuery.trim() ? (
                         <button
                           type="button"
+                          data-cursor-spotlight-target
                           onClick={() => onCreateThreadInWorkspace(workspacePath)}
                           className="shrink-0 rounded-md px-2 py-1 text-[12px] font-medium text-ds-faint transition hover:bg-[var(--ds-sidebar-row-hover)] hover:text-ds-ink"
                         >
@@ -809,6 +809,7 @@ export function SidebarProjectsSection({
                   {hasOverflow ? (
                     <button
                       type="button"
+                      data-cursor-spotlight-target
                       onClick={() =>
                         setExpandedWorkspaces((current) => ({
                           ...current,
@@ -990,6 +991,7 @@ export function SddDraftHistoryRows({
       {!collapsed && remainingCount > 0 ? (
         <button
           type="button"
+          data-cursor-spotlight-target
           onClick={() =>
             setVisibleCount((count) => Math.min(items.length, count + SDD_DRAFT_HISTORY_PAGE_SIZE))
           }
@@ -1020,15 +1022,8 @@ function ThreadRow({
   const { t } = useTranslation('common')
   const showUnreadDot = showUnread && !showRunning
   const archived = thread.archived === true
-  const forkedFromTitle = thread.forkedFromTitle?.trim() ?? ''
-  const forked = Boolean(thread.forkedFromThreadId)
   const worktreeLabel = worktreeRecord
     ? t('sidebarThreadWorktree', { branch: worktreeRecord.branch || 'worktree' })
-    : ''
-  const forkLabel = forked
-    ? forkedFromTitle
-      ? t('sidebarThreadForkedFrom', { title: forkedFromTitle })
-      : t('sidebarThreadForked')
     : ''
   const updatedLabel = formatRelativeTime(thread.updatedAt, locale)
   const ariaLabel = [
@@ -1036,7 +1031,6 @@ function ThreadRow({
     updatedLabel,
     showRunning ? t('sidebarThreadRunning') : '',
     showUnreadDot ? t('sidebarThreadUnread') : '',
-    forkLabel,
     worktreeLabel
   ].filter(Boolean).join(' — ')
 
@@ -1079,16 +1073,10 @@ function ThreadRow({
       buttonClassName="items-center gap-2 px-2.5 py-1.5"
       disabled={deleting}
       ariaLabel={ariaLabel}
-      title={[thread.title, forkLabel, worktreeLabel].filter(Boolean).join('\n')}
+      title={[thread.title, worktreeLabel].filter(Boolean).join('\n')}
       onClick={onSelect}
       onContextMenu={onContextMenu}
     >
-      {forked ? (
-        <GitFork
-          className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-accent' : 'text-ds-faint/90'}`}
-          strokeWidth={1.8}
-        />
-      ) : null}
       <span className="flex min-w-0 flex-1 items-center gap-1.5">
         <span
           className={`min-w-0 flex-1 truncate text-[13.5px] leading-5 ${
@@ -1097,12 +1085,6 @@ function ThreadRow({
         >
           {thread.title}
         </span>
-        {forked ? (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent/15 bg-accent/8 px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-accent">
-            <GitFork className="h-2.5 w-2.5" strokeWidth={1.8} />
-            {t('sidebarThreadForkBadge')}
-          </span>
-        ) : null}
         {worktreeRecord ? (
           <span
             className="inline-grid h-5 w-5 shrink-0 place-items-center rounded-full border border-ds-border-muted bg-ds-card/80 text-ds-muted"
@@ -1112,11 +1094,9 @@ function ThreadRow({
             <GitBranch className="h-3 w-3" strokeWidth={1.8} />
           </span>
         ) : null}
-        <span
-          className={`ml-auto flex shrink-0 items-center gap-1.5 transition ${
-            deleting ? 'opacity-0' : 'group-hover:opacity-0 group-focus-within:opacity-0'
-          }`}
-        >
+        <span className={`ml-auto flex shrink-0 items-center gap-1.5 transition ${
+          deleting ? 'opacity-0' : 'group-hover:opacity-0 group-focus-within:opacity-0'
+        }`}>
           <span className="shrink-0 text-right text-[12px] leading-4 text-ds-faint tabular-nums">
             {updatedLabel}
           </span>

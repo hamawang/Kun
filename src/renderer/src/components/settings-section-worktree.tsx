@@ -13,10 +13,18 @@ type WorktreeDisplayRow = GitBranchWorktreeRow & {
 
 export function WorktreeSettingsSection({ ctx }: { ctx: Record<string, any> }): ReactElement {
   const { t } = ctx
+  const compactHomePath = typeof ctx.compactHomePath === 'function'
+    ? ctx.compactHomePath as (path: string) => string
+    : (path: string) => path
+  const expandHomePath = typeof ctx.expandHomePath === 'function'
+    ? ctx.expandHomePath as (path: string) => string
+    : (path: string) => path
   const locale = String(ctx.locale || 'zh-CN')
   const threads = useMemo(() => (ctx.threads ?? []) as NormalizedThread[], [ctx.threads])
-  const worktreeRoot: string | undefined = ctx.form?.worktreeRootPath || undefined
-  const projectPath = String(ctx.form?.workspaceRoot || ctx.kun?.workspaceRoot || '').trim()
+  const worktreeRoot = ctx.form?.worktreeRootPath
+    ? expandHomePath(String(ctx.form.worktreeRootPath))
+    : undefined
+  const projectPath = expandHomePath(String(ctx.form?.workspaceRoot || ctx.kun?.workspaceRoot || '')).trim()
   const [result, setResult] = useState<GitBranchWorktreesResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [busyPath, setBusyPath] = useState<string | null>(null)
@@ -100,8 +108,11 @@ export function WorktreeSettingsSection({ ctx }: { ctx: Record<string, any> }): 
             <div className="grid grid-cols-[1fr_auto] items-start gap-3">
               <div className="min-w-0 rounded-lg border border-ds-border-muted bg-ds-main/40 px-3 py-2">
                 <div className="text-[12px] text-ds-faint">{t('worktreePoolDir')}</div>
-                <div className="mt-0.5 truncate font-mono text-[12px] text-ds-muted" title={result?.ok ? result.worktreeRoot : undefined}>
-                  {result?.ok ? result.worktreeRoot : '—'}
+                <div
+                  className="mt-0.5 truncate font-mono text-[12px] text-ds-muted"
+                  title={result?.ok ? compactHomePath(result.worktreeRoot) : undefined}
+                >
+                  {result?.ok ? compactHomePath(result.worktreeRoot) : '-'}
                 </div>
               </div>
               <button
@@ -124,44 +135,47 @@ export function WorktreeSettingsSection({ ctx }: { ctx: Record<string, any> }): 
             <div className="overflow-hidden rounded-lg border border-ds-border-muted bg-ds-main/35">
               {rows.length === 0 ? (
                 <div className="px-3 py-4 text-[13px] text-ds-faint">{t('worktreeEmptyList')}</div>
-              ) : rows.map((row) => (
-                <div key={row.path} className="border-b border-ds-border-muted px-3 py-3 last:border-b-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-[13px] font-semibold text-ds-ink">
-                        <GitBranch className="h-3.5 w-3.5 shrink-0 text-ds-muted" strokeWidth={1.8} />
-                        <span className="truncate">{row.branch ?? 'DETACHED'}</span>
-                      </div>
-                      <div className="mt-1 truncate font-mono text-[12px] text-ds-muted" title={row.path}>
-                        {row.path}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-ds-faint">
-                        {row.createdAt ? (
+              ) : rows.map((row) => {
+                const displayPath = compactHomePath(row.path)
+                return (
+                  <div key={row.path} className="border-b border-ds-border-muted px-3 py-3 last:border-b-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-ds-ink">
+                          <GitBranch className="h-3.5 w-3.5 shrink-0 text-ds-muted" strokeWidth={1.8} />
+                          <span className="truncate">{row.branch ?? 'DETACHED'}</span>
+                        </div>
+                        <div className="mt-1 truncate font-mono text-[12px] text-ds-muted" title={displayPath}>
+                          {displayPath}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-ds-faint">
+                          {row.createdAt ? (
+                            <span>
+                              {t('worktreeCreatedAt')}: {formatCreatedAt(row.createdAt)}
+                            </span>
+                          ) : null}
                           <span>
-                            {t('worktreeCreatedAt')}: {formatCreatedAt(row.createdAt)}
+                            {t('worktreeConversation')}: {row.threadTitle || t('worktreeNoConversation')}
                           </span>
-                        ) : null}
-                        <span>
-                          {t('worktreeConversation')}: {row.threadTitle || t('worktreeNoConversation')}
-                        </span>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => void removeWorktree(row.path)}
+                        disabled={busyPath === row.path}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-red-600 transition hover:bg-red-500/10 disabled:opacity-45"
+                      >
+                        {busyPath === row.path ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.8} />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                        )}
+                        {t('worktreeRemove')}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void removeWorktree(row.path)}
-                      disabled={busyPath === row.path}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-red-600 transition hover:bg-red-500/10 disabled:opacity-45"
-                    >
-                      {busyPath === row.path ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.8} />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-                      )}
-                      {t('worktreeRemove')}
-                    </button>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         }

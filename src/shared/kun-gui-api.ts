@@ -244,6 +244,9 @@ export type LegacySessionImportResult =
 export type SseEventPayload = { streamId: string; events: unknown[] }
 export type SseEndPayload = { streamId: string }
 export type SseErrorPayload = { streamId: string; status?: number; message?: string }
+export type TrayActionPayload =
+  | { type: 'new-chat' }
+  | { type: 'open-thread'; threadId: string }
 
 export type ComputerUsePermissionKind = 'accessibility' | 'screenRecording'
 export type ComputerUsePermissionState = 'granted' | 'denied' | 'unknown'
@@ -259,6 +262,7 @@ export type ComputerUsePermissions = {
 
 export type KunGuiApi = {
   platform: string
+  homeDir: string
   getSettings: () => Promise<AppSettingsV1>
   setSettings: (partial: AppSettingsPatch) => Promise<AppSettingsV1>
   saveSettingsSilent: (partial: AppSettingsPatch) => Promise<AppSettingsV1>
@@ -403,6 +407,7 @@ export type KunGuiApi = {
   onSseEnd: (handler: (payload: SseEndPayload) => void) => () => void
   onSseError: (handler: (payload: SseErrorPayload) => void) => () => void
   onClawChannelActivity: (handler: (payload: ClawChannelActivityPayload) => void) => () => void
+  onTrayAction: (handler: (payload: TrayActionPayload) => void) => () => void
   onRuntimeStatus: (handler: (payload: KunRuntimeStatusPayload) => void) => () => void
   mirrorClawChannelMessage: (
     threadId: string,

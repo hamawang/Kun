@@ -104,6 +104,7 @@ import {
 } from '../lib/composer-file-references'
 import { filesUnderDirectory, loadWorkspaceFileIndex } from '../lib/workspace-file-index'
 import { resolveWriteRuntimeBannerMessage } from '../lib/write-runtime-banner'
+import { shouldSuppressRuntimeErrorBanner } from '../lib/runtime-banner-visibility'
 
 const ChangeInspector = lazy(() =>
   import('./ChangeInspector').then((module) => ({ default: module.ChangeInspector }))
@@ -332,6 +333,7 @@ export function Workbench(): ReactElement {
     liveAssistant,
     error,
     runtimeErrorDetail,
+    runtimeStatus,
     busy,
     route,
     pluginHostRoute,
@@ -389,6 +391,7 @@ export function Workbench(): ReactElement {
       liveAssistant: s.liveAssistant,
       error: s.error,
       runtimeErrorDetail: s.runtimeErrorDetail,
+      runtimeStatus: s.runtimeStatus,
       busy: s.busy,
       route: s.route,
       pluginHostRoute: s.pluginHostRoute,
@@ -494,9 +497,10 @@ export function Workbench(): ReactElement {
   }, [composerModelGroups, writeAssistantModel, writeAssistantProviderId])
   const stageInsetClass = 'ds-stage-inset'
   const keyboardShortcuts = useKeyboardShortcutSettings()
+  const shortcutPlatform = typeof window === 'undefined' ? undefined : window.kunGui?.platform
   const keyboardShortcutBindings = useMemo(
-    () => resolveKeyboardShortcutBindings(keyboardShortcuts),
-    [keyboardShortcuts]
+    () => resolveKeyboardShortcutBindings(keyboardShortcuts, shortcutPlatform),
+    [keyboardShortcuts, shortcutPlatform]
   )
 
   const draftByThread = useRef<Record<string, string>>({})
@@ -513,6 +517,7 @@ export function Workbench(): ReactElement {
   const sddTitleSyncTimerRef = useRef<number | null>(null)
   const lastSyncedSddTitleRef = useRef<Record<string, string>>({})
   const timelineBlocks = blocks
+  const lockVisionToTextModelSwitch = route === 'chat' && timelineBlocks.some((block) => block.kind === 'user')
   const timelineLiveReasoning = liveReasoning
   const timelineLiveAssistant = liveAssistant
   const devPreviewBlocks = useMemo<ChatBlock[]>(() => {
@@ -704,6 +709,10 @@ export function Workbench(): ReactElement {
         void chooseWorkspace()
         return
       }
+      if (commandId === 'toggle-terminal') {
+        toggleTerminal()
+        return
+      }
       if (commandId === 'settings') {
         openSettings()
         return
@@ -723,6 +732,7 @@ export function Workbench(): ReactElement {
     mode,
     openSettings,
     setMode,
+    toggleTerminal,
     useWorktreePool,
     worktreeBranch
   ])
@@ -2171,9 +2181,12 @@ export function Workbench(): ReactElement {
     />
   )
 
+  const runtimeErrorSuppressed = shouldSuppressRuntimeErrorBanner(runtimeStatus)
+  const visibleRuntimeError = runtimeErrorSuppressed ? null : error
+  const visibleRuntimeErrorDetail = runtimeErrorSuppressed ? null : runtimeErrorDetail
   const writeRuntimeBannerMessage = resolveWriteRuntimeBannerMessage({
     runtimeConnection,
-    error,
+    error: visibleRuntimeError,
     runtimeActionNeedsConnection: t('runtimeActionNeedsConnection')
   })
   const rightPanelDockedVisible = rightPanelVisible && !planPanelInOverlay
@@ -2466,7 +2479,7 @@ export function Workbench(): ReactElement {
           </Suspense>
         ) : route === 'write' ? (
           <>
-            {writeRuntimeBannerMessage ? renderRuntimeBanner(writeRuntimeBannerMessage, runtimeErrorDetail) : null}
+            {writeRuntimeBannerMessage ? renderRuntimeBanner(writeRuntimeBannerMessage, visibleRuntimeErrorDetail) : null}
             <div className="flex min-h-0 flex-1">
               <WriteWorkspaceView
                 leftSidebarCollapsed={leftSidebarCollapsed}
@@ -2481,7 +2494,9 @@ export function Workbench(): ReactElement {
           </>
         ) : (
           <>
-        {error && !(runtimeConnection !== 'ready' && !activeThreadId) ? renderRuntimeBanner(error, runtimeErrorDetail) : null}
+        {visibleRuntimeError && !(runtimeConnection !== 'ready' && !activeThreadId)
+          ? renderRuntimeBanner(visibleRuntimeError, visibleRuntimeErrorDetail)
+          : null}
 
         <div className="flex min-h-0 flex-1">
           <div className="flex min-h-0 min-w-0 flex-1">
@@ -2595,6 +2610,7 @@ export function Workbench(): ReactElement {
                 composerReasoningEffort={
                   route === 'chat' || route === 'claw' ? composerReasoningEffort : undefined
                 }
+                lockVisionToTextModelSwitch={lockVisionToTextModelSwitch}
                 onComposerModelChange={(modelId, providerId) => {
                   if (route === 'claw' && activeClawChannelId) {
                     void setClawChannelModel(activeClawChannelId, modelId)
@@ -2659,7 +2675,7 @@ export function Workbench(): ReactElement {
                 />
                 <Suspense fallback={<div className="ds-surface-strong h-full w-full" />}>
                   <TerminalPanel
-                    workspaceRoot={workspaceRoot}
+                    workspaceRoot={fileTreeWorkspaceRoot}
                     height={terminalHeight}
                     className="w-full"
                     onCollapse={toggleTerminal}

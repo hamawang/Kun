@@ -96,6 +96,7 @@ import {
   type QueuedComposerMessage
 } from './FloatingComposerQueuedMessages'
 import {
+  FloatingComposerExecutionPicker,
   type ComposerExecutionSettings
 } from './FloatingComposerExecutionPicker'
 import { ImagePreviewLightbox } from './ImagePreviewLightbox'
@@ -106,6 +107,17 @@ import type { ComposerChangedFile } from '../../lib/composer-change-summary'
 
 export type { ComposerFileReference } from '../../lib/composer-file-references'
 export type { ComposerExecutionSettings } from './FloatingComposerExecutionPicker'
+
+const CONTEXT_CAPACITY_RING_SIZE = 18
+const CONTEXT_CAPACITY_RING_STROKE = 2.25
+const CONTEXT_CAPACITY_RING_RADIUS = (CONTEXT_CAPACITY_RING_SIZE - CONTEXT_CAPACITY_RING_STROKE) / 2
+const CONTEXT_CAPACITY_RING_CIRCUMFERENCE = 2 * Math.PI * CONTEXT_CAPACITY_RING_RADIUS
+
+function contextCapacityColor(usedRatio: number): string {
+  if (usedRatio >= 0.9) return '#d9544e'
+  if (usedRatio >= 0.75) return '#d9920f'
+  return 'var(--ds-accent)'
+}
 
 type Props = {
   variant?: 'default' | 'compact'
@@ -122,6 +134,7 @@ type Props = {
   composerPickList: string[]
   composerModelGroups?: ModelProviderModelGroup[]
   composerReasoningEffort?: string
+  lockVisionToTextModelSwitch?: boolean
   onComposerModelChange: (modelId: string, providerId?: string) => void
   onComposerReasoningEffortChange?: (effort: ComposerReasoningEffort) => void
   onConfigureProviders?: () => void
@@ -443,6 +456,7 @@ export function FloatingComposer({
   composerPickList,
   composerModelGroups = EMPTY_MODEL_GROUPS,
   composerReasoningEffort,
+  lockVisionToTextModelSwitch = false,
   onComposerModelChange,
   onComposerReasoningEffortChange,
   onConfigureProviders,
@@ -582,6 +596,9 @@ export function FloatingComposer({
   const canOpenComposerMenu = showComposerMenuButton
     && (canTogglePlanMode || canCreateNewThread || canOpenGoalPanel || canRunReview || canToggleWorktreeMode)
   const showToolbarStartControls = showComposerMenuButton
+  const showExecutionSettingsPicker = showIntentToolbar
+    && Boolean(executionSettings)
+    && Boolean(onExecutionSettingsChange)
   const showChangeSummary = !compact && route === 'chat' && changedFiles.length > 0
   const effectiveChangedFileStats = changedFileStats ?? changedFiles.reduce(
     (stats, file) => ({
@@ -2121,6 +2138,14 @@ export function FloatingComposer({
                     ) : null}
                   </>
                 ) : null}
+                {showExecutionSettingsPicker && executionSettings && onExecutionSettingsChange ? (
+                  <FloatingComposerExecutionPicker
+                    value={executionSettings}
+                    applying={executionSettingsApplying}
+                    disabled={!canCompose || busy}
+                    onChange={onExecutionSettingsChange}
+                  />
+                ) : null}
               </div>
             ) : null}
             <div
@@ -2167,23 +2192,34 @@ export function FloatingComposer({
                     aria-expanded={contextCapacityOpen}
                     title={t('contextCapacityTitle')}
                   >
-                    <span
-                      className="relative flex h-1.5 w-6 overflow-hidden rounded-full"
-                      style={{ background: 'var(--ds-surface-subtle)' }}
+                    <svg
+                      className="h-[18px] w-[18px] -rotate-90 shrink-0"
+                      viewBox={`0 0 ${CONTEXT_CAPACITY_RING_SIZE} ${CONTEXT_CAPACITY_RING_SIZE}`}
                       aria-hidden="true"
                     >
-                      <span
-                        style={{
-                          width: `${Math.min(100, contextCapacity.usedRatio * 100)}%`,
-                          background:
-                            contextCapacity.usedRatio >= 0.9
-                              ? '#d9544e'
-                              : contextCapacity.usedRatio >= 0.75
-                                ? '#d9920f'
-                                : 'var(--ds-accent)'
-                        }}
+                      <circle
+                        cx={CONTEXT_CAPACITY_RING_SIZE / 2}
+                        cy={CONTEXT_CAPACITY_RING_SIZE / 2}
+                        r={CONTEXT_CAPACITY_RING_RADIUS}
+                        fill="none"
+                        stroke="var(--ds-surface-subtle)"
+                        strokeWidth={CONTEXT_CAPACITY_RING_STROKE}
                       />
-                    </span>
+                      <circle
+                        cx={CONTEXT_CAPACITY_RING_SIZE / 2}
+                        cy={CONTEXT_CAPACITY_RING_SIZE / 2}
+                        r={CONTEXT_CAPACITY_RING_RADIUS}
+                        fill="none"
+                        stroke={contextCapacityColor(contextCapacity.usedRatio)}
+                        strokeWidth={CONTEXT_CAPACITY_RING_STROKE}
+                        strokeLinecap="round"
+                        strokeDasharray={CONTEXT_CAPACITY_RING_CIRCUMFERENCE}
+                        strokeDashoffset={
+                          CONTEXT_CAPACITY_RING_CIRCUMFERENCE *
+                          (1 - Math.min(1, Math.max(0, contextCapacity.usedRatio)))
+                        }
+                      />
+                    </svg>
                     <span className="shrink-0 tabular-nums">
                       {formatPercent(contextCapacity.usedRatio)}
                     </span>
@@ -2204,6 +2240,7 @@ export function FloatingComposer({
                   composerPickList={composerPickList}
                   composerModelGroups={composerModelGroups}
                   composerReasoningEffort={composerReasoningEffort}
+                  lockVisionToTextModelSwitch={lockVisionToTextModelSwitch}
                   canChangeModel={canChangeModel}
                   stretch={stretchModelPicker}
                   onComposerModelChange={onComposerModelChange}

@@ -1,8 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { homedir } from 'node:os'
 import type { KunGuiApi } from '../shared/kun-gui-api'
 
 const api = {
   platform: process.platform,
+  homeDir: homedir(),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (partial) =>
     ipcRenderer.invoke('settings:set', partial),
@@ -192,6 +194,14 @@ const api = {
     ) => handler(payload)
     ipcRenderer.on('claw:channel-activity', wrapped)
     return () => ipcRenderer.removeListener('claw:channel-activity', wrapped)
+  },
+  onTrayAction: (handler) => {
+    const wrapped = (
+      _: Electron.IpcRendererEvent,
+      payload: Parameters<typeof handler>[0]
+    ) => handler(payload)
+    ipcRenderer.on('tray:action', wrapped)
+    return () => ipcRenderer.removeListener('tray:action', wrapped)
   },
   onRuntimeStatus: (handler) => {
     const wrapped = (
